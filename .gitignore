@@ -1,0 +1,15 @@
+# Secrets et identifiants : ne jamais committer
+.env
+.env.*
+credentials*
+*.pem
+*.key
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Divers
+*.log
+node_modules/
