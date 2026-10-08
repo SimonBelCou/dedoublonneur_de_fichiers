@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chasseur de doublons</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B2430;
+    --ink-soft:#4A5568;
+    --paper:#EAEAE3;
+    --paper-raised:#F3F2ED;
+    --line:#C9C7BA;
+    --line-soft:#DAD8CC;
+    --teal:#3F6B5C;
+    --teal-dark:#2E4F44;
+    --teal-wash:#E1E9E5;
+    --rust:#A64B3D;
+    --rust-dark:#873B2F;
+    --rust-wash:#F1E1DD;
+    --muted:#8A8977;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    max-width:920px;
+    margin:0 auto;
+    padding:56px 28px 140px;
+  }
+  header{
+    margin-bottom:40px;
+    padding-bottom:28px;
+    border-bottom:2px solid var(--ink);
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-optical-sizing:auto;
+    font-weight:600;
+    font-size:42px;
+    line-height:1.05;
+    margin:0 0 12px;
+    letter-spacing:-0.01em;
+  }
+  .lede{
+    font-size:16px;
+    color:var(--ink-soft);
+    max-width:560px;
+    margin:0 0 6px;
+  }
+  .compat{
+    font-size:13px;
+    color:var(--muted);
+    font-family:'IBM Plex Mono',monospace;
+  }
+
+  .panel{
+    background:var(--paper-raised);
+    border:1px solid var(--line);
+    padding:24px 26px;
+    margin-bottom:24px;
+  }
+  .panel h2{
+    font-family:'Fraunces',serif;
+    font-weight:500;
+    font-size:19px;
+    margin:0 0 6px;
+  }
+  .panel p{
+    color:var(--ink-soft);
+    font-size:14.5px;
+    margin:0 0 16px;
+  }
+
+  button{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:14.5px;
+    border:none;
+    cursor:pointer;
+    padding:12px 22px;
+    transition:background 0.15s ease, transform 0.1s ease;
+  }
+  button:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+  }
+  .btn-primary{
+    background:var(--ink);
+    color:var(--paper);
+  }
+  .btn-primary:hover:not(:disabled){background:#000;}
+  .btn-danger{
+    background:var(--rust);
+    color:#fff;
+  }
+  .btn-danger:hover:not(:disabled){background:var(--rust-dark);}
+  .btn-ghost{
+    background:transparent;
+    color:var(--ink);
+    border:1px solid var(--line);
+    padding:7px 14px;
+    font-size:13px;
+  }
+  .btn-ghost:hover:not(:disabled){background:var(--paper);border-color:var(--ink-soft);}
+
+  #status{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13.5px;
+    color:var(--ink-soft);
+    margin-top:14px;
+    min-height:18px;
+  }
+  .progress-bar{
+    width:100%;
+    height:6px;
+    background:var(--line-soft);
+    margin-top:10px;
+    display:none;
+    overflow:hidden;
+  }
+  .progress-bar .fill{
+    height:100%;
+    background:var(--teal);
+    width:0%;
+    transition:width 0.2s ease;
+  }
+
+  .summary{
+    display:none;
+    grid-template-columns:repeat(3,1fr);
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    margin-bottom:28px;
+  }
+  .summary .cell{
+    background:var(--paper-raised);
+    padding:20px 22px;
+  }
+  .summary .num{
+    font-family:'Fraunces',serif;
+    font-size:30px;
+    font-weight:600;
+    display:block;
+    line-height:1.1;
+  }
+  .summary .label{
+    font-size:13px;
+    color:var(--muted);
+    margin-top:4px;
+  }
+
+  #empty-state{
+    display:none;
+    text-align:center;
+    padding:48px 20px;
+    color:var(--ink-soft);
+    font-family:'Fraunces',serif;
+    font-size:18px;
+  }
+
+  .group{
+    border:1px solid var(--line);
+    margin-bottom:18px;
+    background:var(--paper-raised);
+  }
+  .group-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:14px 18px;
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .group-head .gtitle{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:14px;
+    font-weight:500;
+  }
+  .group-head .gmeta{
+    font-size:12.5px;
+    color:var(--muted);
+    margin-left:10px;
+  }
+  .group-actions{
+    display:flex;
+    gap:8px;
+  }
+
+  .file-row{
+    display:grid;
+    grid-template-columns:32px 1fr auto auto;
+    align-items:center;
+    gap:14px;
+    padding:12px 18px;
+    border-bottom:1px solid var(--line-soft);
+  }
+  .file-row:last-child{border-bottom:none;}
+  .file-row.keep{background:var(--teal-wash);}
+  .file-row.drop{background:var(--rust-wash);}
+  .file-row input[type=checkbox]{
+    width:18px;height:18px;
+    accent-color:var(--teal);
+    cursor:pointer;
+  }
+  .file-path{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    word-break:break-all;
+  }
+  .file-path .fname{font-weight:500;}
+  .file-path .fdir{color:var(--muted);font-size:12px;display:block;margin-top:2px;}
+  .file-size, .file-date{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    white-space:nowrap;
+  }
+  .tag{
+    font-size:11px;
+    font-weight:600;
+    padding:2px 8px;
+    display:inline-block;
+    margin-left:8px;
+  }
+  .tag.keep{background:var(--teal);color:#fff;}
+  .tag.drop{background:var(--rust);color:#fff;}
+
+  #action-bar{
+    position:fixed;
+    bottom:0;left:0;right:0;
+    background:var(--ink);
+    color:var(--paper);
+    padding:16px 28px;
+    display:none;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  #action-bar .info{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13.5px;
+  }
+  #action-bar .info strong{
+    font-family:'Fraunces',serif;
+    font-size:18px;
+    font-weight:600;
+    margin-right:6px;
+  }
+
+  #log{
+    display:none;
+    margin-top:24px;
+    padding:16px 18px;
+    background:var(--paper-raised);
+    border:1px solid var(--line);
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    max-height:220px;
+    overflow-y:auto;
+  }
+  #log .ok{color:var(--teal-dark);}
+  #log .err{color:var(--rust-dark);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Chasseur de doublons</h1>
+    <p class="lede">Analyse un dossier de votre disque, repère les fichiers identiques présents plusieurs fois, et vous laisse choisir lesquels garder avant de supprimer le reste.</p>
+    <p class="compat">Fonctionne dans Chrome ou Edge (Windows/Mac). Non compatible avec Firefox ou Safari. Rien n'est envoyé sur internet : tout se passe dans votre navigateur.</p>
+  </header>
+
+  <div class="panel">
+    <h2>1. Choisir le dossier à analyser</h2>
+    <p>Sélectionnez le dossier D:\ (ou un sous-dossier précis) contenant les documents triés. L'analyse inclut tous les sous-dossiers.</p>
+    <button class="btn-primary" id="pick-btn">Choisir un dossier</button>
+    <div class="progress-bar" id="progress"><div class="fill" id="progress-fill"></div></div>
+    <div id="status"></div>
+  </div>
+
+  <div id="empty-state"></div>
+
+  <div class="summary" id="summary">
+    <div class="cell">
+      <span class="num" id="sum-groups">0</span>
+      <span class="label">groupes de doublons</span>
+    </div>
+    <div class="cell">
+      <span class="num" id="sum-files">0</span>
+      <span class="label">copies en trop</span>
+    </div>
+    <div class="cell">
+      <span class="num" id="sum-space">0</span>
+      <span class="label">récupérables si supprimées</span>
+    </div>
+  </div>
+
+  <div class="panel" id="bulk-panel" style="display:none;">
+    <h2>Action groupée</h2>
+    <p>Applique un choix à tous les groupes en une fois (vous pourrez encore ajuster à la main avant de supprimer). Utile quand le volume est trop important pour tout vérifier un par un.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn-ghost" id="bulk-oldest">Tout garder : le plus ancien de chaque groupe</button>
+      <button class="btn-ghost" id="bulk-newest">Tout garder : le plus récent de chaque groupe</button>
+    </div>
+  </div>
+
+  <div id="results"></div>
+
+  <div id="log"></div>
+
+</div>
+
+<div id="action-bar">
+  <div class="info"><strong id="del-count">0</strong> fichier(s) décoché(s) seront supprimés — <span id="del-space">0 Mo</span></div>
+  <div id="delete-progress-info" style="display:none;font-family:'IBM Plex Mono',monospace;font-size:13px;"></div>
+  <div style="display:flex;gap:10px;">
+    <button class="btn-ghost" id="reset-btn" style="border-color:var(--paper);color:var(--paper);">Recommencer</button>
+    <button class="btn-danger" id="delete-btn">Supprimer les fichiers décochés</button>
+  </div>
+</div>
+
+<script>
+const pickBtn = document.getElementById('pick-btn');
+const statusEl = document.getElementById('status');
+const progressBar = document.getElementById('progress');
+const progressFill = document.getElementById('progress-fill');
+const summaryEl = document.getElementById('summary');
+const resultsEl = document.getElementById('results');
+const emptyStateEl = document.getElementById('empty-state');
+const actionBar = document.getElementById('action-bar');
+const delCountEl = document.getElementById('del-count');
+const delSpaceEl = document.getElementById('del-space');
+const deleteBtn = document.getElementById('delete-btn');
+const resetBtn = document.getElementById('reset-btn');
+const logEl = document.getElementById('log');
+
+const IGNORED_FILES = new Set(['thumbs.db','desktop.ini','.ds_store']);
+
+let duplicateGroups = []; // [{hash, size, files:[{name, relPath, handle, parentHandle, size, lastModified}]}]
+
+function fmtSize(bytes){
+  if(bytes < 1024) return bytes + ' o';
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' Ko';
+  if(bytes < 1024*1024*1024) return (bytes/(1024*1024)).toFixed(1) + ' Mo';
+  return (bytes/(1024*1024*1024)).toFixed(2) + ' Go';
+}
+function fmtDate(ms){
+  const d = new Date(ms);
+  return d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+}
+
+let skippedCount = 0;
+
+async function* walkDir(dirHandle, relPath=''){
+  let iterator;
+  try{
+    iterator = dirHandle.entries();
+  }catch(e){
+    console.warn('Dossier illisible, ignoré:', relPath, e);
+    skippedCount++;
+    return;
+  }
+  while (true){
+    let result;
+    try{
+      result = await iterator.next();
+    }catch(e){
+      console.warn('Erreur pendant la lecture du dossier, arrêt de ce sous-dossier:', relPath, e);
+      skippedCount++;
+      return;
+    }
+    if (result.done) return;
+    const [name, handle] = result.value;
+    if (handle.kind === 'file'){
+      if (IGNORED_FILES.has(name.toLowerCase())) continue;
+      yield { name, relPath: relPath ? relPath + '/' + name : name, handle, parentHandle: dirHandle };
+    } else if (handle.kind === 'directory'){
+      yield* walkDir(handle, relPath ? relPath + '/' + name : name);
+    }
+  }
+}
+
+async function hashFile(fileHandle){
+  const file = await fileHandle.getFile();
+  const buf = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+const LARGE_FILE_THRESHOLD = 300 * 1024 * 1024; // 300 Mo : au-delà, on prévient plutôt que de bloquer longtemps
+let skippedLarge = [];
+
+function showError(msg){
+  statusEl.innerHTML = `<span style="color:var(--rust-dark);">⚠ ${msg}</span>`;
+}
+
+if (!('showDirectoryPicker' in window)){
+  pickBtn.disabled = true;
+  showError("Ce navigateur ne supporte pas l'accès aux dossiers locaux. Ouvrez ce fichier dans Chrome ou Edge (pas Firefox/Safari).");
+}
+
+let rootDirHandle = null;
+
+pickBtn.addEventListener('click', async () => {
+  let dirHandle;
+  statusEl.textContent = '';
+  try{
+    dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+    rootDirHandle = dirHandle;
+  }catch(e){
+    if (e.name === 'AbortError') return; // user closed the picker, nothing to report
+    showError(`Impossible d'ouvrir le dossier (${e.name}). Si Edge a affiché une seconde fenêtre demandant d'autoriser la modification du dossier, acceptez-la puis réessayez.`);
+    console.error(e);
+    return;
+  }
+
+  resetUI();
+  pickBtn.disabled = true;
+  pickBtn.textContent = 'Analyse en cours…';
+  progressBar.style.display = 'block';
+  skippedLarge = [];
+  skippedCount = 0;
+  const startTime = Date.now();
+
+  try{
+    // Step 1: collect all files
+    statusEl.textContent = 'Parcours du dossier en cours…';
+    const allFiles = [];
+    for await (const entry of walkDir(dirHandle)){
+      try{
+        const file = await entry.handle.getFile();
+        allFiles.push({
+          name: entry.name,
+          relPath: entry.relPath,
+          handle: entry.handle,
+          parentHandle: entry.parentHandle,
+          size: file.size,
+          lastModified: file.lastModified
+        });
+      }catch(e){ console.warn('Fichier illisible ignoré:', entry.relPath, e); skippedCount++; }
+      if (allFiles.length % 10 === 0){
+        statusEl.textContent = `Parcours en cours… ${allFiles.length} fichiers trouvés`;
+      }
+    }
+
+    if (allFiles.length === 0){
+      showError("Aucun fichier lisible trouvé dans ce dossier.");
+      pickBtn.disabled = false;
+      pickBtn.textContent = 'Choisir un dossier';
+      progressBar.style.display = 'none';
+      return;
+    }
+
+    statusEl.textContent = `${allFiles.length} fichiers trouvés. Recherche des doublons potentiels…`;
+
+    // Step 2: group by size, only sizes with >1 file are candidates
+    const bySize = new Map();
+    for (const f of allFiles){
+      if (f.size === 0) continue; // skip empty files
+      if (!bySize.has(f.size)) bySize.set(f.size, []);
+      bySize.get(f.size).push(f);
+    }
+    let candidates = [];
+    for (const group of bySize.values()){
+      if (group.length > 1) candidates.push(...group);
+    }
+
+    // Separate out very large files so one huge video doesn't stall the whole scan
+    const toHash = [];
+    for (const f of candidates){
+      if (f.size > LARGE_FILE_THRESHOLD){ skippedLarge.push(f); }
+      else { toHash.push(f); }
+    }
+
+    // Step 3: hash candidates, group by hash
+    const byHash = new Map();
+    let hashed = 0;
+    for (const f of toHash){
+      try{
+        const h = await hashFile(f.handle);
+        if (!byHash.has(h)) byHash.set(h, []);
+        byHash.get(h).push(f);
+      }catch(e){ console.warn('Erreur de lecture, ignoré:', f.relPath, e); skippedCount++; }
+      hashed++;
+      const pct = toHash.length ? Math.round((hashed/toHash.length)*100) : 100;
+      progressFill.style.width = pct + '%';
+      const elapsed = Math.round((Date.now()-startTime)/1000);
+      statusEl.textContent = `Comparaison du contenu… ${hashed}/${toHash.length} fichiers (${elapsed}s écoulées)`;
+    }
+
+    duplicateGroups = [];
+    for (const [hash, files] of byHash.entries()){
+      if (files.length > 1){
+        files.sort((a,b) => a.relPath.localeCompare(b.relPath));
+        duplicateGroups.push({ hash, size: files[0].size, files });
+      }
+    }
+
+    progressBar.style.display = 'none';
+    pickBtn.disabled = false;
+    pickBtn.textContent = 'Choisir un dossier';
+    const totalTime = Math.round((Date.now()-startTime)/1000);
+    let msg = `Analyse terminée en ${totalTime}s : ${allFiles.length} fichiers examinés.`;
+    if (skippedLarge.length){
+      msg += ` ${skippedLarge.length} fichier(s) volumineux (>300 Mo) non comparés automatiquement — vérifiez-les manuellement si besoin.`;
+    }
+    if (skippedCount){
+      msg += ` ${skippedCount} fichier(s)/dossier(s) illisible(s) ignoré(s) (souvent des fichiers OneDrive "en ligne uniquement" non téléchargés).`;
+    }
+    statusEl.textContent = msg;
+
+    renderResults();
+  }catch(fatal){
+    console.error(fatal);
+    showError(`Une erreur inattendue a interrompu l'analyse : ${fatal.message}`);
+    pickBtn.disabled = false;
+    pickBtn.textContent = 'Choisir un dossier';
+    progressBar.style.display = 'none';
+  }
+});
+
+function resetUI(){
+  duplicateGroups = [];
+  resultsEl.innerHTML = '';
+  summaryEl.style.display = 'none';
+  emptyStateEl.style.display = 'none';
+  actionBar.style.display = 'none';
+  logEl.style.display = 'none';
+  logEl.innerHTML = '';
+}
+
+const GROUPS_PER_PAGE = 40;
+let renderedGroupCount = 0;
+let uncheckedCount = 0;
+let uncheckedSpace = 0;
+
+function renderResults(){
+  resultsEl.innerHTML = '';
+  renderedGroupCount = 0;
+  uncheckedCount = 0;
+  uncheckedSpace = 0;
+
+  if (duplicateGroups.length === 0){
+    emptyStateEl.textContent = 'Aucun doublon trouvé — ce dossier est déjà propre.';
+    emptyStateEl.style.display = 'block';
+    summaryEl.style.display = 'none';
+    actionBar.style.display = 'none';
+    return;
+  }
+  emptyStateEl.style.display = 'none';
+
+  // Show the groups wasting the most space first
+  duplicateGroups.forEach(g => { g.wasted = g.size * (g.files.length - 1); g.files.forEach(f => f.kept = true); });
+  duplicateGroups.sort((a,b) => b.wasted - a.wasted);
+
+  document.getElementById('sum-groups').textContent = duplicateGroups.length;
+  const totalExtra = duplicateGroups.reduce((s,g) => s + (g.files.length - 1), 0);
+  const totalSpace = duplicateGroups.reduce((s,g) => s + g.wasted, 0);
+  document.getElementById('sum-files').textContent = totalExtra;
+  document.getElementById('sum-space').textContent = fmtSize(totalSpace);
+  summaryEl.style.display = 'grid';
+  document.getElementById('bulk-panel').style.display = 'block';
+
+  actionBar.style.display = 'flex';
+  document.getElementById('bulk-panel').style.display = 'block';
+  renderNextPage();
+  updateDeleteBar();
+}
+
+function renderNextPage(){
+  const frag = document.createDocumentFragment();
+  const end = Math.min(renderedGroupCount + GROUPS_PER_PAGE, duplicateGroups.length);
+
+  for (let gi = renderedGroupCount; gi < end; gi++){
+    const group = duplicateGroups[gi];
+    const box = document.createElement('div');
+    box.className = 'group';
+    box.dataset.groupIndex = gi;
+
+    const head = document.createElement('div');
+    head.className = 'group-head';
+    head.innerHTML = `
+      <div>
+        <span class="gtitle">${group.files.length} copies identiques</span>
+        <span class="gmeta">${fmtSize(group.size)} chacune — ${fmtSize(group.wasted)} récupérables</span>
+      </div>
+      <div class="group-actions">
+        <button class="btn-ghost" data-action="keep-oldest" data-group="${gi}">Garder le plus ancien</button>
+        <button class="btn-ghost" data-action="keep-newest" data-group="${gi}">Garder le plus récent</button>
+      </div>
+    `;
+    box.appendChild(head);
+
+    group.files.forEach((f, fi) => {
+      const row = document.createElement('div');
+      row.className = 'file-row ' + (f.kept ? 'keep' : 'drop');
+      row.dataset.group = gi;
+      row.dataset.file = fi;
+
+      const dirPart = f.relPath.includes('/') ? f.relPath.slice(0, f.relPath.lastIndexOf('/')) : '(racine)';
+
+      row.innerHTML = `
+        <input type="checkbox" ${f.kept ? 'checked' : ''} data-group="${gi}" data-file="${fi}">
+        <div class="file-path">
+          <span class="fname">${f.name}</span>
+          <span class="tag ${f.kept ? 'keep' : 'drop'}">${f.kept ? 'à garder' : 'à supprimer'}</span>
+          <span class="fdir">${dirPart}</span>
+        </div>
+        <div class="file-size">${fmtSize(f.size)}</div>
+        <div class="file-date">${fmtDate(f.lastModified)}</div>
+      `;
+      box.appendChild(row);
+    });
+
+    frag.appendChild(box);
+  }
+  resultsEl.appendChild(frag);
+  renderedGroupCount = end;
+
+  const oldMore = document.getElementById('load-more-btn');
+  if (oldMore) oldMore.remove();
+
+  if (renderedGroupCount < duplicateGroups.length){
+    const moreBtn = document.createElement('button');
+    moreBtn.id = 'load-more-btn';
+    moreBtn.className = 'btn-primary';
+    moreBtn.style.display = 'block';
+    moreBtn.style.margin = '20px auto 0';
+    moreBtn.textContent = `Afficher les ${Math.min(GROUPS_PER_PAGE, duplicateGroups.length - renderedGroupCount)} groupes suivants (${renderedGroupCount}/${duplicateGroups.length} affichés)`;
+    moreBtn.addEventListener('click', renderNextPage);
+    resultsEl.appendChild(moreBtn);
+  }
+}
+
+function applyGlobalStrategy(strategy){
+  duplicateGroups.forEach(group => {
+    let targetIdx;
+    if (strategy === 'oldest'){
+      targetIdx = group.files.reduce((best,f,i,arr) => f.lastModified < arr[best].lastModified ? i : best, 0);
+    } else {
+      targetIdx = group.files.reduce((best,f,i,arr) => f.lastModified > arr[best].lastModified ? i : best, 0);
+    }
+    group.files.forEach((f, i) => { f.kept = (i === targetIdx); });
+  });
+
+  // Full recompute — done once for the whole set, not per checkbox, so it stays cheap even at this scale
+  uncheckedCount = 0;
+  uncheckedSpace = 0;
+  duplicateGroups.forEach(g => g.files.forEach(f => { if (!f.kept){ uncheckedCount++; uncheckedSpace += f.size; } }));
+  updateDeleteBar();
+
+  // Sync only the rows currently rendered on screen — the rest read from duplicateGroups when the user scrolls/loads more
+  document.querySelectorAll('#results .file-row').forEach(row => {
+    const gi = parseInt(row.dataset.group, 10);
+    const fi = parseInt(row.dataset.file, 10);
+    const f = duplicateGroups[gi].files[fi];
+    const cb = row.querySelector('input[type=checkbox]');
+    cb.checked = f.kept;
+    row.classList.toggle('keep', f.kept);
+    row.classList.toggle('drop', !f.kept);
+    const tag = row.querySelector('.tag');
+    tag.textContent = f.kept ? 'à garder' : 'à supprimer';
+    tag.className = 'tag ' + (f.kept ? 'keep' : 'drop');
+  });
+}
+
+document.getElementById('bulk-oldest').addEventListener('click', () => applyGlobalStrategy('oldest'));
+document.getElementById('bulk-newest').addEventListener('click', () => applyGlobalStrategy('newest'));
+
+resultsEl.addEventListener('change', (e) => {
+  if (e.target.matches('input[type=checkbox]')){
+    const row = e.target.closest('.file-row');
+    const gi = parseInt(row.dataset.group, 10);
+    const fi = parseInt(row.dataset.file, 10);
+    const f = duplicateGroups[gi].files[fi];
+    const checked = e.target.checked;
+
+    if (checked !== f.kept){
+      if (checked){ uncheckedCount--; uncheckedSpace -= f.size; }
+      else { uncheckedCount++; uncheckedSpace += f.size; }
+      f.kept = checked;
+    }
+
+    row.classList.toggle('keep', checked);
+    row.classList.toggle('drop', !checked);
+    row.querySelector('.tag').textContent = checked ? 'à garder' : 'à supprimer';
+    row.querySelector('.tag').className = 'tag ' + (checked ? 'keep' : 'drop');
+    updateDeleteBar();
+  }
+});
+
+resultsEl.addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+  const gi = btn.dataset.group;
+  const group = duplicateGroups[gi];
+  let targetIdx;
+  if (btn.dataset.action === 'keep-oldest'){
+    targetIdx = group.files.reduce((best,f,i,arr) => f.lastModified < arr[best].lastModified ? i : best, 0);
+  } else {
+    targetIdx = group.files.reduce((best,f,i,arr) => f.lastModified > arr[best].lastModified ? i : best, 0);
+  }
+  const box = document.querySelector(`.group[data-group-index="${gi}"]`);
+  box.querySelectorAll('.file-row').forEach(row => {
+    const fi = parseInt(row.dataset.file, 10);
+    const cb = row.querySelector('input[type=checkbox]');
+    const wanted = (fi === targetIdx);
+    if (cb.checked !== wanted){
+      cb.checked = wanted;
+      cb.dispatchEvent(new Event('change', {bubbles:true}));
+    }
+  });
+});
+
+function updateDeleteBar(){
+  delCountEl.textContent = uncheckedCount;
+  delSpaceEl.textContent = fmtSize(uncheckedSpace);
+  deleteBtn.disabled = uncheckedCount === 0;
+}
+
+deleteBtn.addEventListener('click', async () => {
+  // Safety check: don't allow deleting every copy in a group
+  for (const group of duplicateGroups){
+    const anyKept = group.files.some(f => f.kept);
+    if (!anyKept){
+      alert(`Un groupe n'a plus aucun fichier coché à garder (au moins un exemplaire doit rester). Vérifiez vos cases avant de continuer.`);
+      return;
+    }
+  }
+
+  const count = parseInt(delCountEl.textContent, 10);
+  if (!confirm(`Supprimer définitivement ${count} fichier(s) ? Cette action est irréversible.`)) return;
+
+  try{
+    const perm = await rootDirHandle.requestPermission({ mode: 'readwrite' });
+    if (perm !== 'granted'){
+      alert("Permission de modification refusée. Impossible de supprimer sans autoriser l'accès en écriture au dossier.");
+      return;
+    }
+  }catch(e){
+    alert("Impossible de vérifier la permission d'écriture : " + e.message);
+    return;
+  }
+
+  deleteBtn.disabled = true;
+  logEl.style.display = 'block';
+  logEl.innerHTML = '';
+  const progressInfo = document.getElementById('delete-progress-info');
+  progressInfo.style.display = 'block';
+
+  // Flatten to a plain list of files to delete, carrying group/file index for DOM sync
+  const toDelete = [];
+  duplicateGroups.forEach((g, gi) => {
+    g.files.forEach((f, fi) => {
+      if (!f.kept) toDelete.push({ f, gi, fi });
+    });
+  });
+
+  const BATCH_SIZE = 25;
+  let done = 0, errors = 0;
+  const startTime = Date.now();
+
+  for (let i = 0; i < toDelete.length; i += BATCH_SIZE){
+    const batch = toDelete.slice(i, i + BATCH_SIZE);
+    const results = await Promise.allSettled(
+      batch.map(item => item.f.parentHandle.removeEntry(item.f.name))
+    );
+
+    results.forEach((r, idx) => {
+      const item = batch[idx];
+      done++;
+      if (r.status === 'fulfilled'){
+        const row = document.querySelector(`.file-row[data-group="${item.gi}"][data-file="${item.fi}"]`);
+        if (row){
+          row.style.opacity = '0.35';
+          const cb = row.querySelector('input[type=checkbox]');
+          if (cb) cb.disabled = true;
+        }
+      } else {
+        errors++;
+        const line = document.createElement('div');
+        line.className = 'err';
+        const reason = r.reason && r.reason.message ? r.reason.message : String(r.reason);
+        line.textContent = `✗ ${item.f.relPath} (${reason})`;
+        logEl.appendChild(line);
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+    });
+
+    const elapsed = Math.round((Date.now() - startTime) / 1000);
+    progressInfo.textContent = `Suppression en cours… ${done}/${toDelete.length} (${errors} erreur(s)) — ${elapsed}s écoulées`;
+  }
+
+  const doneLine = document.createElement('div');
+  doneLine.style.marginTop = '8px';
+  doneLine.style.fontWeight = '600';
+  const totalTime = Math.round((Date.now() - startTime) / 1000);
+  doneLine.textContent = `Terminé en ${totalTime}s : ${done - errors} fichier(s) supprimé(s), ${errors} erreur(s).`;
+  logEl.appendChild(doneLine);
+  progressInfo.textContent = doneLine.textContent;
+
+  uncheckedCount = 0;
+  uncheckedSpace = 0;
+  updateDeleteBar();
+});
+
+resetBtn.addEventListener('click', () => {
+  resetUI();
+  statusEl.textContent = '';
+});
+</script>
+</body>
+</html>
