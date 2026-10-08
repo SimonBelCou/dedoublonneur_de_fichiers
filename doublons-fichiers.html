@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Défense en profondeur : aucune connexion réseau possible depuis la page (connect-src 'none'),
+     donc même en cas de faille, aucune donnée ne peut être envoyée à l'extérieur.
+     Seules les polices Google (CSS + fichiers de police) sont autorisées en chargement. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'none'; img-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Chasseur de doublons</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -404,8 +408,18 @@ async function hashFile(fileHandle){
 const LARGE_FILE_THRESHOLD = 300 * 1024 * 1024; // 300 Mo : au-delà, on prévient plutôt que de bloquer longtemps
 let skippedLarge = [];
 
+// Sécurité (OWASP A03) : tout texte issu du disque (noms de fichiers, chemins, messages d'erreur)
+// est traité comme non fiable et n'est jamais injecté tel quel dans du HTML.
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 function showError(msg){
-  statusEl.innerHTML = `<span style="color:var(--rust-dark);">⚠ ${msg}</span>`;
+  statusEl.textContent = '';
+  const span = document.createElement('span');
+  span.style.color = 'var(--rust-dark)';
+  span.textContent = '⚠ ' + msg;
+  statusEl.appendChild(span);
 }
 
 if (!('showDirectoryPicker' in window)){
@@ -616,9 +630,9 @@ function renderNextPage(){
       row.innerHTML = `
         <input type="checkbox" ${f.kept ? 'checked' : ''} data-group="${gi}" data-file="${fi}">
         <div class="file-path">
-          <span class="fname">${f.name}</span>
+          <span class="fname">${escapeHtml(f.name)}</span>
           <span class="tag ${f.kept ? 'keep' : 'drop'}">${f.kept ? 'à garder' : 'à supprimer'}</span>
-          <span class="fdir">${dirPart}</span>
+          <span class="fdir">${escapeHtml(dirPart)}</span>
         </div>
         <div class="file-size">${fmtSize(f.size)}</div>
         <div class="file-date">${fmtDate(f.lastModified)}</div>
